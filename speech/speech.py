@@ -4,7 +4,7 @@ import pyttsx3
 import google.generativeai as genai
 
 model = pyttsx3.init()
-genai.configure(api_key="AIzaSyC3Zg9Y4tKiTMHedAQzG7ORATJO_DW6KaQ")
+genai.configure(api_key="test")
 m = genai.GenerativeModel("gemini-1.5-flash")
 
 with sr.Microphone() as source:
