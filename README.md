@@ -1,3 +1,13 @@
+---
+title: Project Agent v1
+emoji: 🤖
+colorFrom: blue
+colorTo: navy
+sdk: docker
+pinned: false
+app_port: 7860
+---
+
 # Project Agent v1
 
 A production-ready, locally-runnable multi-agent AI system for project portfolio management. Combines LangGraph orchestration, Groq LLM, ChromaDB RAG, and a SQLite structured database to answer natural-language queries about projects, contracts, risks, and financials.
