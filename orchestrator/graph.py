@@ -35,6 +35,7 @@ from agents.pricing_agent import pricing_agent_node as _pricing_direct
 from agents.risk_agent import risk_agent_node as _risk_direct
 from agents.raid_update_agent import raid_update_agent_node as _raid_update_direct
 from agents.sql_agent import sql_agent_node as _sql_direct
+from agents.mbr_agent import mbr_agent_node as _mbr_direct
 
 _ACP_AVAILABLE: bool | None = None   # cached after first check
 
@@ -129,6 +130,17 @@ def raid_update_agent_node(state: AgentState) -> dict:
     return _raid_update_direct(state)
 
 
+def mbr_agent_node(state: AgentState) -> dict:
+    if _use_acp():
+        text = _call_acp_agent("mbr-agent", state["query"], history=state.get("history"))
+        debug = state.get("debug_log", "")
+        return {
+            "response": text,
+            "debug_log": debug + "\n📊 MBR Agent: portfolio report via ACP.",
+        }
+    return _mbr_direct(state)
+
+
 def sql_agent_node(state: AgentState) -> dict:
     # SQL Agent manages its own next_node decision and SQLite execution.
     # We call it directly to ensure the state machine routes correctly.
@@ -165,6 +177,8 @@ def _route_decision(state: AgentState):
         return ["risk_agent"]
     if decision == "raid_update_agent":
         return ["raid_update_agent"]
+    if decision == "mbr_agent":
+        return ["mbr_agent"]
     return ["general_agent"]
 
 
@@ -190,6 +204,7 @@ def build_graph():
     workflow.add_node("pricing_agent", pricing_agent_node)
     workflow.add_node("risk_agent", risk_agent_node)
     workflow.add_node("raid_update_agent", raid_update_agent_node)
+    workflow.add_node("mbr_agent", mbr_agent_node)
 
     # All queries hit the Text-to-SQL logic first
     workflow.set_entry_point("sql_agent")
@@ -215,7 +230,8 @@ def build_graph():
             "delete_agent": "delete_agent",
             "pricing_agent": "pricing_agent",
             "risk_agent": "risk_agent",
-            "raid_update_agent": "raid_update_agent"
+            "raid_update_agent": "raid_update_agent",
+            "mbr_agent": "mbr_agent",
         }
     )
 
@@ -227,6 +243,7 @@ def build_graph():
     workflow.add_edge("pricing_agent", END)
     workflow.add_edge("risk_agent", END)
     workflow.add_edge("raid_update_agent", END)
+    workflow.add_edge("mbr_agent", END)
 
     return workflow.compile()
 

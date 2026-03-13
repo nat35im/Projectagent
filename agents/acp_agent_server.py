@@ -42,6 +42,7 @@ from agents.pricing_agent import pricing_agent_node
 from agents.risk_agent import risk_agent_node
 from agents.raid_update_agent import raid_update_agent_node
 from agents.sql_agent import sql_agent_node
+from agents.mbr_agent import mbr_agent_node
 
 ACP_PORT = int(os.getenv("ACP_PORT", "8100"))
 
@@ -140,6 +141,14 @@ AGENT_REGISTRY: dict[str, dict] = {
         "name": "sql-agent",
         "description": "Primary Text-to-SQL logic agent mapping query to structured project database schema.",
         "handler": lambda q, outputs, history, debug: sql_agent_node({
+            "query": q, "agent_outputs": outputs, "history": history, "debug_log": debug,
+            "response": "", "next_node": "",
+        }),
+    },
+    "mbr-agent": {
+        "name": "mbr-agent",
+        "description": "Generates a portfolio MBR dashboard: project status, revenue/loss forecast, RAID summary, and recovery plan for all projects.",
+        "handler": lambda q, outputs, history, debug: mbr_agent_node({
             "query": q, "agent_outputs": outputs, "history": history, "debug_log": debug,
             "response": "", "next_node": "",
         }),

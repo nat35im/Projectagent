@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project Agent v1 &ndash; Portfolio Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:        #eef2f7;
+      --card:      #ffffff;
+      --border:    #d8e2ef;
+      --navy:      #1a3c6e;
+      --navy-dark: #0f2348;
+      --navy-mid:  #254e8a;
+      --green:     #15803d;
+      --green-bg:  #f0fdf4;
+      --yellow:    #b45309;
+      --yellow-bg: #fffbeb;
+      --red:       #b91c1c;
+      --red-bg:    #fef2f2;
+      --orange:    #c2410c;
+      --orange-bg: #fff7ed;
+      --text:      #0f1f3d;
+      --muted:     #5a6a85;
+      --radius:    10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-dark) 100%);
+      padding: 18px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+      box-shadow: 0 3px 10px rgba(15,35,72,0.3);
+    }
+    .header-left  { display: flex; align-items: center; gap: 14px; }
+    .logo         { font-size: 21px; font-weight: 800; letter-spacing: -0.5px; color: #fff; }
+    .subtitle     { color: rgba(255,255,255,0.6); font-size: 13px; padding-left: 14px; border-left: 1px solid rgba(255,255,255,0.2); }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    #report-date  { color: rgba(255,255,255,0.6); font-size: 12px; }
+    .refresh-btn  {
+      background: rgba(255,255,255,0.18); color: #fff;
+      border: 1px solid rgba(255,255,255,0.35); border-radius: 7px;
+      padding: 7px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s;
+    }
+    .refresh-btn:hover    { background: rgba(255,255,255,0.28); }
+    .refresh-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── Layout ── */
+    .container  { max-width: 1440px; margin: 0 auto; padding: 26px 32px; }
+    .kpi-row    { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 24px; }
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px; }
+
+    /* ── KPI cards ── */
+    .kpi-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 18px 20px; display: flex; flex-direction: column; gap: 5px;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.06);
+      border-top: 4px solid var(--navy-mid);         /* default accent */
+    }
+    .kpi-card.accent-green  { border-top-color: var(--green);  }
+    .kpi-card.accent-red    { border-top-color: var(--red);    }
+    .kpi-card.accent-yellow { border-top-color: var(--yellow); }
+    .kpi-label    { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; }
+    .kpi-value    { font-size: 27px; font-weight: 800; line-height: 1; color: var(--text); }
+    .kpi-sub      { font-size: 12px; color: var(--muted); }
+    .kpi-positive { color: var(--green)  !important; }
+    .kpi-negative { color: var(--red)    !important; }
+    .kpi-warning  { color: var(--yellow) !important; }
+
+    /* ── Chart cards ── */
+    .chart-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 20px; display: flex; flex-direction: column; gap: 14px;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.06);
+    }
+    .chart-card h3  { font-size: 12px; font-weight: 800; color: var(--navy); text-transform: uppercase; letter-spacing: 0.6px; }
+    .chart-wrap     { position: relative; height: 220px; }
+
+    /* ── Section header ── */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .section-title  { font-size: 15px; font-weight: 800; color: var(--navy);
+                      padding-bottom: 10px; border-bottom: 2px solid var(--navy); display: inline-block; }
+
+    /* ── Project cards — status left-border strip ── */
+    .project-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      margin-bottom: 14px; overflow: hidden;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.06);
+      border-left: 5px solid var(--navy-mid);        /* default */
+    }
+    .project-card.status-at-risk  { border-left-color: var(--red);    }
+    .project-card.status-delayed  { border-left-color: var(--orange);  }
+    .project-card.status-on-track { border-left-color: var(--green);   }
+
+    .project-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px; cursor: pointer; user-select: none; transition: background 0.15s;
+    }
+    /* tint header bg for problem projects */
+    .project-card.status-at-risk  .project-header { background: #fef9f9; }
+    .project-card.status-delayed  .project-header { background: #fff9f5; }
+    .project-card.status-on-track .project-header { background: #f6fef8; }
+    .project-header:hover { filter: brightness(0.97); }
+
+    .project-title-group { display: flex; align-items: center; gap: 12px; }
+
+    /* ── Status badges — outlined (icon already carries the color) ── */
+    .project-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 11px; border-radius: 5px; font-size: 11px; font-weight: 800;
+      letter-spacing: 0.3px; white-space: nowrap;
+      background: #fff; border: 1.5px solid currentColor;
+    }
+    .badge-at-risk  { color: var(--red);    }
+    .badge-delayed  { color: var(--orange); }
+    .badge-on-track { color: var(--green);  }
+    .badge-default  { color: var(--muted);  }
+
+    .project-name { font-size: 15px; font-weight: 700; color: var(--navy); }
+    .project-meta { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .project-financials { display: flex; align-items: center; gap: 24px; }
+    .fin-item     { text-align: right; }
+    .fin-label    { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
+    .fin-value    { font-size: 14px; font-weight: 700; color: var(--text); }
+    .fin-positive { color: var(--green)  !important; }
+    .fin-negative { color: var(--red)    !important; }
+
+    /* negative variance — pill highlight */
+    .fin-negative-bg {
+      background: var(--red-bg); color: var(--red) !important;
+      padding: 2px 8px; border-radius: 5px; border: 1px solid rgba(185,28,28,0.2);
+      font-size: 14px; font-weight: 700;
+    }
+
+    .toggle-icon { color: var(--muted); font-size: 16px; transition: transform 0.2s; margin-left: 8px; }
+    .project-card.open .toggle-icon { transform: rotate(180deg); }
+    .project-detail { display: none; padding: 0 20px 20px 20px; border-top: 1px solid var(--border); }
+    .project-card.open .project-detail { display: block; }
+
+    /* ── RAID table ── */
+    .raid-section-title {
+      font-size: 11px; font-weight: 800; color: var(--navy);
+      text-transform: uppercase; letter-spacing: 0.6px; margin: 16px 0 8px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      background: #e8eef7; color: var(--navy); font-weight: 800;
+      text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;
+      padding: 8px 11px; text-align: left; border-bottom: 2px solid var(--border);
+    }
+    td { padding: 9px 11px; border-bottom: 1px solid #eef2f7; vertical-align: top; color: var(--text); }
+    tr:nth-child(even) td { background: #fafcff; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f0f5ff !important; }
+
+    /* ── Pills ── */
+    .pill { display: inline-block; padding: 3px 9px; border-radius: 5px; font-size: 11px; font-weight: 700; }
+    /* Priority (table only — no icon): solid fill communicates severity */
+    .pill-high   { background: var(--red);    color: #fff; }
+    .pill-medium { background: var(--orange);  color: #fff; }
+    .pill-low    { background: #d1fae5; color: var(--green); border: 1px solid rgba(21,128,61,0.25); }
+    /* RAID count pills in project header — icon already has color, use neutral */
+    .pill-count  { background: #f1f5f9; color: var(--muted); border: 1px solid var(--border); }
+    /* Status */
+    .pill-open   { background: #dbeafe; color: var(--navy);   border: 1px solid rgba(26,60,110,0.2); }
+    .pill-wip    { background: var(--yellow-bg); color: var(--yellow); border: 1px solid rgba(180,83,9,0.2); }
+    .pill-closed { background: #f1f5f9; color: var(--muted); }
+
+    /* ── Recovery box ── */
+    .recovery-box {
+      background: var(--red-bg); border: 1px solid rgba(185,28,28,0.2);
+      border-left: 5px solid var(--red);
+      border-radius: 8px; padding: 14px 16px; margin-top: 14px;
+    }
+    .recovery-title { font-size: 12px; font-weight: 800; color: var(--red);
+                      text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px; }
+    .recovery-text  { font-size: 13px; color: var(--text); line-height: 1.7; white-space: pre-wrap; }
+
+    /* ── No raids ── */
+    .no-raids {
+      color: var(--green); font-size: 13px; padding: 10px 14px;
+      background: var(--green-bg); border-radius: 6px; border: 1px solid rgba(21,128,61,0.2);
+      font-weight: 600; margin-top: 8px;
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block; width: 22px; height: 22px;
+      border: 3px solid var(--border); border-top-color: var(--navy);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-overlay {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; padding: 60px; color: var(--muted); font-size: 14px;
+    }
+    .error-box {
+      color: var(--red); background: var(--red-bg);
+      border: 1px solid rgba(185,28,28,0.2); border-left: 4px solid var(--red);
+      border-radius: 8px; padding: 14px 18px; font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <span class="logo">Project Agent v1</span>
+    <span class="subtitle">Portfolio Dashboard</span>
+  </div>
+  <div class="header-right">
+    <span id="report-date"></span>
+    <button class="refresh-btn" id="refresh-btn" onclick="loadDashboard()">&#x21BB; Refresh</button>
+  </div>
+</header>
+
+<div class="container">
+  <div id="app">
+    <div class="loading-overlay">
+      <div class="spinner"></div>
+      <span>Loading portfolio data&hellip;</span>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ── Safe DOM helpers ─────────────────────────────────────────── */
+function el(tag, attrs, children) {
+  const node = document.createElement(tag);
+  if (attrs) Object.entries(attrs).forEach(([k, v]) => {
+    if (k === 'className') node.className = v;
+    else if (k === 'title') node.title = v;
+    else node.setAttribute(k, v);
+  });
+  (children || []).forEach(c => {
+    if (c == null) return;
+    node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  });
+  return node;
+}
+
+/* ── Formatting helpers ───────────────────────────────────────── */
+const MONTHS  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const GATEWAY = 'http://localhost:8000';
+
+function fmtDate(d) {
+  return String(d.getDate()).padStart(2,'0') + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+function fmtCurrency(val, currency) {
+  if (val == null) return '—';
+  const abs = Math.abs(val);
+  const s = abs >= 1e6 ? (abs/1e6).toFixed(2)+'M'
+          : abs >= 1e3 ? (abs/1e3).toFixed(1)+'K'
+          : abs.toFixed(0);
+  return (val < 0 ? '-' : '') + (currency || 'SGD') + '\u00A0' + s;
+}
+
+/* ── Pill helpers ─────────────────────────────────────────────── */
+function pill(text, cls) { return el('span', {className:'pill '+cls}, [text]); }
+
+function categoryPill(cat) {
+  const c = (cat||'').toLowerCase();
+  return pill(cat||'—', c==='high'?'pill-high': c==='medium'?'pill-medium':'pill-low');
+}
+
+function statusPill(status) {
+  const s = (status||'').toLowerCase();
+  return pill(status||'—', s==='open'?'pill-open': s==='wip'?'pill-wip':'pill-closed');
+}
+
+function stageBadge(stage) {
+  const s = (stage||'').toUpperCase();
+  const map = {
+    'AT RISK' : ['badge-at-risk',  '\uD83D\uDD34 AT RISK'],
+    'DELAYED' : ['badge-delayed',  '\uD83D\uDFE0 DELAYED'],
+    'ON TRACK': ['badge-on-track', '\uD83D\uDFE2 ON TRACK'],
+  };
+  const [cls, label] = map[s] || ['badge-default', '\u26AA '+(stage||'—')];
+  return el('span', {className:'project-badge '+cls}, [label]);
+}
+
+function stageCardClass(stage) {
+  const s = (stage||'').toUpperCase();
+  if (s === 'AT RISK')  return 'status-at-risk';
+  if (s === 'DELAYED')  return 'status-delayed';
+  if (s === 'ON TRACK') return 'status-on-track';
+  return '';
+}
+
+/* ── RAID table ───────────────────────────────────────────────── */
+function raidTable(raids) {
+  if (!raids || !raids.length) {
+    return el('p', {className:'no-raids'}, ['\u2714 No open RAID items — project is clean.']);
+  }
+  const thead = el('thead', {}, [el('tr', {}, [
+    el('th',{},['Type']), el('th',{},['Priority']),
+    el('th',{},['Owner']), el('th',{},['Status']),
+    el('th',{},['Due']),  el('th',{},['Description']),
+  ])]);
+  const tbody = el('tbody', {}, raids.map(r => {
+    const desc = r.Description || '';
+    const shortDesc = desc.length > 120 ? desc.substring(0, 120) + '\u2026' : desc;
+    return el('tr', {}, [
+      el('td',{},[r.Type||'—']),
+      el('td',{},[categoryPill(r.Category)]),
+      el('td',{},[r.owner||'—']),
+      el('td',{},[statusPill(r.Status)]),
+      el('td',{},[(r.DueDate||'—').substring(0,10)]),
+      el('td',{style:'max-width:320px'},[shortDesc]),
+    ]);
+  }));
+  return el('table', {}, [thead, tbody]);
+}
+
+/* ── Recovery plan ────────────────────────────────────────────── */
+function extractRecovery(report, customer) {
+  if (!report) return null;
+  const lines = report.split('\n');
+  let inProj = false, inPlan = false, out = [];
+  for (const line of lines) {
+    if (!inProj && line.includes(customer)) { inProj = true; }
+    if (inProj && line.includes('Recovery Plan')) { inPlan = true; continue; }
+    if (inPlan) {
+      if (line.startsWith('### ') || line.startsWith('---')) break;
+      if (line.trim()) out.push(line);
+    }
+  }
+  return out.length ? out.join('\n') : null;
+}
+
+/* ── Project card ─────────────────────────────────────────────── */
+function projectCard(p, idx, report) {
+  const f      = p.financials;
+  const stg    = (p.stage||'').toUpperCase();
+  const varPos = f.rev_variance >= 0;
+  const needsRP = stg === 'AT RISK' || stg === 'DELAYED';
+  const cardCls = 'project-card ' + stageCardClass(p.stage);
+
+  /* title block */
+  const nameEl  = el('div', {className:'project-name'}, [p.customer]);
+  const metaEl  = el('div', {className:'project-meta'}, [
+    '#'+p.project_number+' \u00B7 '+(p.country||'—')+
+    ' \u00B7 PM: '+(p.pm||'—')+
+    ' \u00B7 '+(p.start_date||'?')+' \u2192 '+(p.end_date||'?')
+  ]);
+  const titleGroup = el('div', {className:'project-title-group'},
+    [stageBadge(p.stage), el('div',{},[nameEl, metaEl])]);
+
+  /* financials block */
+  const varValueEl = varPos
+    ? el('div', {className:'fin-value fin-positive'}, [fmtCurrency(f.rev_variance, f.currency)])
+    : el('div', {className:'fin-negative-bg'}, [fmtCurrency(f.rev_variance, f.currency)]);
+
+  const marginCls = f.margin_pct >= 15 ? 'fin-positive' : f.margin_pct >= 0 ? 'kpi-warning' : 'fin-negative';
+
+  const fins = el('div', {className:'project-financials'}, [
+    el('div',{className:'fin-item'},[el('div',{className:'fin-label'},['Baseline Rev']),  el('div',{className:'fin-value'},     [fmtCurrency(f.baseline_rev, f.currency)])]),
+    el('div',{className:'fin-item'},[el('div',{className:'fin-label'},['Actual Cost']),   el('div',{className:'fin-value'},     [fmtCurrency(f.actual_cost,  f.currency)])]),
+    el('div',{className:'fin-item'},[el('div',{className:'fin-label'},['Variance']),      varValueEl]),
+    el('div',{className:'fin-item'},[el('div',{className:'fin-label'},['Margin']),        el('div',{className:'fin-value '+marginCls}, [f.margin_pct+'%'])]),
+    el('div',{className:'fin-item',style:'text-align:center'},[
+      el('div',{className:'fin-label'},['RAID']),
+      el('div',{style:'font-size:12px;margin-top:3px;display:flex;gap:4px;justify-content:flex-end'}, [
+        pill('\uD83D\uDD34\u00D7'+p.raids.high,   'pill-count'),
+        pill('\uD83D\uDFE0\u00D7'+p.raids.medium, 'pill-count'),
+        pill('\uD83D\uDFE1\u00D7'+p.raids.low,    'pill-count'),
+      ]),
+    ]),
+  ]);
+
+  const toggleIcon = el('div', {className:'toggle-icon'}, ['\u25BE']);
+  const hdr = el('div', {className:'project-header'}, [
+    titleGroup,
+    el('div',{style:'display:flex;align-items:center;gap:20px'},[fins, toggleIcon])
+  ]);
+
+  /* detail */
+  const raidTitle   = el('div', {className:'raid-section-title'}, ['Open RAID Items ('+p.raids.open+')']);
+  const detailNodes = [raidTitle, raidTable(p.open_raid_items)];
+
+  if (needsRP) {
+    const plan = extractRecovery(report, p.customer);
+    if (plan) {
+      detailNodes.push(el('div', {className:'recovery-box'}, [
+        el('div',{className:'recovery-title'},['🛠 Recovery Plan']),
+        el('div',{className:'recovery-text'},[plan]),
+      ]));
+    }
+  }
+
+  const detail = el('div', {className:'project-detail'}, detailNodes);
+  const card   = el('div', {className:cardCls, id:'project-'+idx}, [hdr, detail]);
+  hdr.addEventListener('click', () => card.classList.toggle('open'));
+  return card;
+}
+
+/* ── Charts ───────────────────────────────────────────────────── */
+let revenueChart, marginChart;
+
+function renderCharts(projects) {
+  if (revenueChart) revenueChart.destroy();
+  if (marginChart)  marginChart.destroy();
+
+  const labels = projects.map(p => p.customer.split(' ').slice(0,2).join(' '));
+  const tick   = { color: '#5a6a85', font: { size: 11 } };
+  const grid   = { color: 'rgba(0,0,0,0.06)' };
+  const base   = {
+    plugins: { legend: { labels: { color:'#5a6a85', font:{ size:12 } } } },
+    scales:  { x: { ticks:tick, grid }, y: { ticks:tick, grid } }
+  };
+
+  revenueChart = new Chart(document.getElementById('revenueChart'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label:'Baseline Revenue', data: projects.map(p=>p.financials.baseline_rev),
+        backgroundColor:'rgba(26,60,110,0.8)', borderRadius:5 },
+      { label:'Actual Cost',      data: projects.map(p=>p.financials.actual_cost),
+        backgroundColor:'rgba(185,28,28,0.75)', borderRadius:5 },
+    ]},
+    options: { ...base, responsive:true, maintainAspectRatio:false },
+  });
+
+  const margins = projects.map(p=>p.financials.margin_pct);
+  marginChart = new Chart(document.getElementById('marginChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{
+      label:'Margin %',
+      data: margins,
+      backgroundColor: margins.map(m => m>=20?'rgba(21,128,61,0.8)':m>=10?'rgba(180,83,9,0.8)':'rgba(185,28,28,0.8)'),
+      borderRadius:5,
+    }]},
+    options: { ...base, responsive:true, maintainAspectRatio:false,
+      scales:{ ...base.scales, y:{ ticks:{...tick, callback:v=>v+'%'}, grid } } },
+  });
+}
+
+/* ── KPI card ─────────────────────────────────────────────────── */
+function kpiCard(label, value, sub, valCls, accentCls) {
+  return el('div', {className:'kpi-card '+(accentCls||'')}, [
+    el('div',{className:'kpi-label'},[label]),
+    el('div',{className:'kpi-value '+(valCls||'')},[value]),
+    el('div',{className:'kpi-sub'},[sub]),
+  ]);
+}
+
+/* ── Main render ──────────────────────────────────────────────── */
+async function loadDashboard() {
+  const btn = document.getElementById('refresh-btn');
+  const app = document.getElementById('app');
+  btn.disabled = true;
+  btn.textContent = '\u21BB Loading\u2026';
+  app.replaceChildren(el('div',{className:'loading-overlay'},[
+    el('div',{className:'spinner'},[]),
+    el('span',{},['Generating portfolio report\u2026'])
+  ]));
+
+  try {
+    const res = await fetch(GATEWAY + '/dashboard');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data     = await res.json();
+    const projects = data.projects || [];
+    const report   = data.report   || '';
+
+    document.getElementById('report-date').textContent = 'Updated: ' + fmtDate(new Date());
+
+    const currency  = projects[0]?.financials?.currency || 'SGD';
+    const totalRev  = projects.reduce((s,p)=>s+(p.financials.baseline_rev||0), 0);
+    const totalCost = projects.reduce((s,p)=>s+(p.financials.actual_cost||0),  0);
+    const totalVar  = totalRev - totalCost;
+    const avgMargin = projects.length ? projects.reduce((s,p)=>s+p.financials.margin_pct,0)/projects.length : 0;
+    const atRisk    = projects.filter(p=>['AT RISK','DELAYED'].includes((p.stage||'').toUpperCase())).length;
+    const highRaids = projects.reduce((s,p)=>s+p.raids.high,  0);
+    const openRaids = projects.reduce((s,p)=>s+p.raids.open,  0);
+
+    const kpiRow = el('div',{className:'kpi-row'},[
+      kpiCard('Total Projects',    String(projects.length),         atRisk+' at risk / delayed',         '', atRisk>0?'accent-yellow':'accent-green'),
+      kpiCard('Portfolio Revenue', fmtCurrency(totalRev, currency), 'Baseline across all projects',      'kpi-positive', 'accent-green'),
+      kpiCard('Revenue Variance',  fmtCurrency(totalVar, currency), 'Avg margin: '+avgMargin.toFixed(1)+'%', totalVar>=0?'kpi-positive':'kpi-negative', totalVar>=0?'accent-green':'accent-red'),
+      kpiCard('High RAID Items',   String(highRaids),               openRaids+' open total',             highRaids>0?'kpi-negative':'kpi-positive', highRaids>0?'accent-red':'accent-green'),
+    ]);
+
+    const revenueCanvas = el('canvas',{id:'revenueChart'},[]);
+    const marginCanvas  = el('canvas',{id:'marginChart'},[]);
+    const chartsRow = el('div',{className:'charts-row'},[
+      el('div',{className:'chart-card'},[el('h3',{},['Revenue vs Cost by Project']), el('div',{className:'chart-wrap'},[revenueCanvas])]),
+      el('div',{className:'chart-card'},[el('h3',{},['Margin % by Project']),        el('div',{className:'chart-wrap'},[marginCanvas])]),
+    ]);
+
+    const sectionHdr = el('div',{className:'section-header'},[
+      el('div',{className:'section-title'},['Projects ('+projects.length+')'])
+    ]);
+    const projectEls = projects.map((p,i)=>projectCard(p,i,report));
+
+    app.replaceChildren(kpiRow, chartsRow, el('div',{className:'projects-section'},[sectionHdr,...projectEls]));
+    renderCharts(projects);
+
+    /* auto-expand problem projects */
+    projects.forEach((_,i)=>{
+      const stg = (projects[i].stage||'').toUpperCase();
+      if (stg==='AT RISK'||stg==='DELAYED') document.getElementById('project-'+i)?.classList.add('open');
+    });
+
+  } catch (err) {
+    app.replaceChildren(el('div',{className:'error-box'},[
+      '\u274C Failed to load dashboard: '+err.message,
+      el('br',{},[]),
+      'Make sure the orchestrator is running on port 8000.',
+    ]));
+  }
+
+  btn.disabled = false;
+  btn.textContent = '\u21BB Refresh';
+}
+
+loadDashboard();
+</script>
+</body>
+</html>

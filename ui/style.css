@@ -86,6 +86,7 @@ body {
   letter-spacing: 1px;
   color: var(--text-sub);
   margin-bottom: 8px;
+  text-align: left;
 }
 
 .agent-chip {

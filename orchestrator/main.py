@@ -266,6 +266,52 @@ def confirm_project(req: ProjectConfirmRequest):
     }
 
 
+@server.get("/dashboard")
+def dashboard():
+    """Portfolio MBR dashboard — returns markdown report + per-project JSON for UI rendering."""
+    from agents.mbr_agent import mbr_agent_node, _fetch_portfolio, _compute_financials, _fetch_open_raids
+    result = mbr_agent_node({
+        "query": "portfolio dashboard",
+        "debug_log": "",
+        "agent_outputs": [],
+        "history": [],
+        "response": "",
+        "next_node": "",
+    })
+
+    # Also return structured JSON for the dashboard UI
+    projects = _fetch_portfolio()
+    structured = []
+    for p in projects:
+        f = _compute_financials(p)
+        raids = _fetch_open_raids(p["project_id"])
+        structured.append({
+            "project_id":     p["project_id"],
+            "project_number": p["ProjectNumber"],
+            "customer":       p["customer"],
+            "pm":             p["PMName"],
+            "country":        p["country"],
+            "stage":          p["Proj_Stage"] or "—",
+            "start_date":     p["startdateContract"],
+            "end_date":       p["endDateContract"],
+            "financials":     f,
+            "raids": {
+                "total": p["total_raids"],
+                "open":  p["raids_open"],
+                "high":  p["raids_high"],
+                "medium":p["raids_medium"],
+                "low":   p["raids_low"],
+            },
+            "open_raid_items": raids,
+        })
+
+    return {
+        "report":   result["response"],
+        "projects": structured,
+        "debug_log": result.get("debug_log", ""),
+    }
+
+
 @server.get("/raid/alerts")
 def get_raid_alerts():
     """

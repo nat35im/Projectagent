@@ -245,18 +245,14 @@ def risk_agent_node(state: dict) -> dict:
     debug += f"\n⚠️ Risk Agent: '{identifier}' not found in SQLite. Falling back to Vector DB (contract_collection) RAG search."
     
     try:
-        from runtime.api.embeddings import get_embeddings
-        embed_model = get_embeddings()
-        docs = similarity_search(query, "contract_collection", embed_model, k=4)
-        
-        if not docs:
+        context_str = similarity_search("contract_collection", query, k=4)
+
+        if not context_str:
             debug += "\n❌ Risk Agent: No relevant context found in ChromaDB either."
             return {
                 "response": f"I couldn't find risk analysis information for {identifier} in the database or the uploaded contracts. Please ensure the project is created or the SOW is uploaded.",
                 "debug_log": debug
             }
-            
-        context_str = "\n\n".join([doc.page_content for doc in docs])
         
         rag_prompt = _get_risk_prompt().format(
             document_text=context_str,

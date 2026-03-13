@@ -26,6 +26,7 @@ COLLECTION_TO_AGENT = {
     "plan-forecast": "plan-forecast_agent",
     "contract": "contract_agent",
     "estimation-milestone": "plan-forecast_agent",
+    "project": "general_agent",
 }
 
 
@@ -101,7 +102,10 @@ def _build_router_prompt() -> str:
         f"{next_i + 4}. 'raid_update_agent': Use ONLY when the query explicitly instructs to ADD, CREATE, UPDATE, ASSIGN, or RESOLVE a specific risk, issue, action, or assumption, OR when reporting a missing PO (Purchase Order)."
     )
     buckets.append(
-        f"{next_i + 5}. 'general_agent': General conversation, off-topic, or greetings."
+        f"{next_i + 5}. 'mbr_agent': Use when the query asks for a portfolio overview, dashboard, MBR report, all-projects status, recovery plan, revenue/loss summary, or forecast across all projects."
+    )
+    buckets.append(
+        f"{next_i + 6}. 'general_agent': General conversation, off-topic, or greetings."
     )
 
     return (
@@ -123,7 +127,7 @@ def router_node(state: AgentState) -> dict:
 
     valid_keys = (
         [COLLECTION_TO_AGENT.get(s, s + "_agent") for s in ROUTER_CONTEXT]
-        + ["both", "delete_agent", "pricing_agent", "risk_agent", "raid_update_agent", "general_agent"]
+        + ["both", "delete_agent", "pricing_agent", "risk_agent", "raid_update_agent", "mbr_agent", "general_agent"]
     )
 
     # 1. Prepare messages with history
@@ -156,6 +160,8 @@ def router_node(state: AgentState) -> dict:
             decision = "raid_update_agent"
         elif "risk" in q or "raid" in q or "mitigation" in q or "issue" in q:
             decision = "risk_agent"
+        elif any(w in q for w in ["dashboard", "mbr", "portfolio", "status report", "recovery plan", "all projects", "all project"]):
+            decision = "mbr_agent"
         elif "plan" in q or "forecast" in q or "hours" in q:
             decision = "plan-forecast_agent"
         elif "contract" in q or "sow" in q or "agreement" in q:
