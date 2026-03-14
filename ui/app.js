@@ -782,14 +782,24 @@ function dbProjectCard(p, idx, report) {
     const needsRP = stg === "AT RISK" || stg === "DELAYED";
     const cardCls = "db-project-card " + dbStageCardClass(p.stage);
 
+    const days = _daysRemaining(p);
+    const daysLabel = isFinite(days)
+        ? (days < 0 ? Math.abs(days) + "d overdue" : days + "d left")
+        : "—";
+    const daysCls = days < 0 ? "color:#f87171" : days < 30 ? "color:#fbbf24" : "color:#4ade80";
+
     const nameEl = dbEl("div", { className: "db-proj-name" }, [p.customer]);
     const metaEl = dbEl("div", { className: "db-proj-meta" }, [
         "#" + p.project_number + " \u00B7 " + (p.country || "—") +
         " \u00B7 PM: " + (p.pm || "—") +
         " \u00B7 " + (p.start_date || "?") + " \u2192 " + (p.end_date || "?"),
     ]);
+    const daysEl = dbEl("span", { style: "font-size:10px;font-weight:700;padding:1px 7px;border-radius:4px;background:rgba(255,255,255,0.06);" + daysCls }, [daysLabel]);
     const titleGroup = dbEl("div", { className: "db-proj-title-grp" },
-        [dbStageBadge(p.stage), dbEl("div", {}, [nameEl, metaEl])]);
+        [dbStageBadge(p.stage), dbEl("div", {}, [
+            dbEl("div", { style: "display:flex;align-items:center;gap:8px;" }, [nameEl, daysEl]),
+            metaEl,
+        ])]);
 
     const varEl = varPos
         ? dbEl("div", { className: "db-fin-value db-fin-pos" }, [dbFmtCurrency(f.rev_variance, f.currency)])
@@ -1128,6 +1138,50 @@ function dbKpiCard(label, value, sub, valCls, accentCls) {
 }
 
 let _dbProjects = [];
+let _dbReport   = "";
+let _dbProjectsContainer = null;  // div holding the project cards
+
+// ─── Sort helpers ──────────────────────────────────────────────────────────
+const STATUS_ORDER = { "AT RISK": 0, "DELAYED": 1, "ON TRACK": 2 };
+
+function _daysRemaining(p) {
+    const d = Date.parse(p.end_date);
+    return isNaN(d) ? Infinity : Math.round((d - Date.now()) / 86_400_000);
+}
+
+function dbSortProjects(projects, key) {
+    const sorted = [...projects];
+    switch (key) {
+        case "status":
+            sorted.sort((a, b) => {
+                const sa = STATUS_ORDER[(a.stage || "").toUpperCase()] ?? 3;
+                const sb = STATUS_ORDER[(b.stage || "").toUpperCase()] ?? 3;
+                return sa !== sb ? sa - sb : a.customer.localeCompare(b.customer);
+            });
+            break;
+        case "days":
+            sorted.sort((a, b) => _daysRemaining(a) - _daysRemaining(b));
+            break;
+        case "revenue":
+            sorted.sort((a, b) => b.financials.baseline_rev - a.financials.baseline_rev);
+            break;
+        case "loss":
+            sorted.sort((a, b) => a.financials.rev_variance - b.financials.rev_variance);
+            break;
+    }
+    return sorted;
+}
+
+function dbRenderProjectCards(projects, report) {
+    if (!_dbProjectsContainer) return;
+    const sortKey = document.getElementById("db-sort-select")?.value || "status";
+    const sorted  = dbSortProjects(projects, sortKey);
+    const cards   = sorted.map((p, i) => dbProjectCard(p, i, report));
+    const hdr = dbEl("div", { className: "db-section-hdr" }, [
+        dbEl("div", { className: "db-section-title" }, ["Projects (" + projects.length + ")"]),
+    ]);
+    _dbProjectsContainer.replaceChildren(hdr, ...cards);
+}
 
 async function loadDashboard() {
     const btn = document.getElementById("db-refresh-btn");
@@ -1146,7 +1200,8 @@ async function loadDashboard() {
         if (!res.ok) throw new Error("HTTP " + res.status);
         const data     = await res.json();
         _dbProjects    = data.projects || [];
-        const report   = data.report   || "";
+        _dbReport      = data.report   || "";
+        const report   = _dbReport;
 
         const now  = new Date();
         const h12  = now.getHours() % 12 || 12;
@@ -1178,26 +1233,24 @@ async function loadDashboard() {
             dbEl("div", { className: "db-chart-card" }, [dbEl("h3", {}, ["Margin % by Project"]),        dbEl("div", { className: "db-chart-wrap" }, [marCanvas])]),
         ]);
 
-        const projectEls = _dbProjects.map((p, i) => dbProjectCard(p, i, report));
-
-        const sectionHdr = dbEl("div", { className: "db-section-hdr" }, [
-            dbEl("div", { className: "db-section-title" }, ["Projects (" + _dbProjects.length + ")"]),
-        ]);
-
-        app.replaceChildren(kpiRow, chartsRow, dbEl("div", {}, [sectionHdr, ...projectEls]));
+        _dbProjectsContainer = dbEl("div", {}, []);
+        app.replaceChildren(kpiRow, chartsRow, _dbProjectsContainer);
+        dbRenderProjectCards(_dbProjects, report);
         dbRenderCharts(_dbProjects);
 
         // Wire top-bar buttons (they live outside db-app, so wire after render)
-        const expandBtn = document.getElementById("db-expand-all-btn");
-        const csvBtn    = document.getElementById("db-csv-btn");
-        const pdfBtn    = document.getElementById("db-pdf-btn");
+        const expandBtn  = document.getElementById("db-expand-all-btn");
+        const csvBtn     = document.getElementById("db-csv-btn");
+        const pdfBtn     = document.getElementById("db-pdf-btn");
+        const sortSelect = document.getElementById("db-sort-select");
 
         let allExpanded = false;
         expandBtn.onclick = () => {
             allExpanded = !allExpanded;
-            projectEls.forEach(c => c.classList.toggle("open", allExpanded));
+            _dbProjectsContainer.querySelectorAll(".db-project-card").forEach(c => c.classList.toggle("open", allExpanded));
             expandBtn.textContent = allExpanded ? "Collapse All" : "Expand All";
         };
+        sortSelect.onchange = () => dbRenderProjectCards(_dbProjects, report);
         csvBtn.onclick = () => dbExportCSV(_dbProjects);
         pdfBtn.onclick = () => dbExportPDF(_dbProjects, report);
 

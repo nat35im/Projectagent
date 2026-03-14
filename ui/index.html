@@ -36,6 +36,12 @@
     }
     #dashboard-panel .db-refresh-btn:hover { background: rgba(255,255,255,0.15); }
     #dashboard-panel .db-refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .db-sort-select {
+      background: #21262d; color: #e6edf3; border: 1px solid #30363d;
+      border-radius: 7px; padding: 5px 10px; font-size: 12px; font-weight: 600;
+      cursor: pointer; font-family: inherit; outline: none;
+    }
+    .db-sort-select:focus { border-color: #58a6ff; }
 
     #db-app { flex: 1; overflow-y: auto; padding: 24px 28px; }
 
@@ -402,6 +408,13 @@
       </div>
       <div class="db-topbar-right">
         <span id="db-report-date"></span>
+        <label for="db-sort-select" style="font-size:11px;color:#8b949e;white-space:nowrap;">Sort by</label>
+        <select id="db-sort-select" class="db-sort-select">
+          <option value="status">Status</option>
+          <option value="days">Days Remaining</option>
+          <option value="revenue">Revenue ↑</option>
+          <option value="loss">Loss First ↓</option>
+        </select>
         <button class="db-refresh-btn" id="db-refresh-btn">&#x21BB; Refresh</button>
         <button class="db-action-btn" id="db-expand-all-btn">Expand All</button>
         <button class="db-action-btn" id="db-csv-btn">⬇ CSV</button>
