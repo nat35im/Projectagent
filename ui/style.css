@@ -272,18 +272,30 @@ body {
 #messages {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: 20px clamp(12px, 4vw, 40px);
   display: flex;
   flex-direction: column;
   gap: 16px;
   scroll-behavior: smooth;
+  /* Centre the conversation column on wide screens */
+  align-items: stretch;
 }
 
+/* Inner centering wrapper — each message is capped and centred */
 .message {
   display: flex;
   gap: 12px;
-  max-width: 820px;
+  width: 100%;
+  max-width: min(860px, 100%);
   animation: fadeIn .3s ease;
+}
+
+/* On large screens, centre the message column */
+@media (min-width: 1200px) {
+  #messages {
+    padding-left: max(40px, calc((100% - 860px) / 2));
+    padding-right: max(40px, calc((100% - 860px) / 2));
+  }
 }
 
 @keyframes fadeIn {
@@ -331,7 +343,10 @@ body {
   border-radius: var(--radius);
   padding: 12px 16px;
   line-height: 1.65;
-  max-width: 720px;
+  /* Fluid: fill available width minus the avatar, cap at a readable max */
+  max-width: min(720px, calc(100% - 46px));
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .message.user .bubble {
@@ -468,7 +483,7 @@ body {
 
 /* ─── Input Area ─────────────────────────────────────────────────────────── */
 #input-area {
-  padding: 16px 20px;
+  padding: 16px clamp(12px, 4vw, 40px);
   border-top: 1px solid var(--border);
   background: var(--bg-card);
   flex-shrink: 0;
@@ -621,8 +636,109 @@ body {
   transform: translateY(110%);
 }
 
+/* ─── Input area: centre on very wide screens ────────────────────────────── */
+@media (min-width: 1200px) {
+  #input-area {
+    padding-left: max(40px, calc((100% - 860px) / 2));
+    padding-right: max(40px, calc((100% - 860px) / 2));
+  }
+}
+
+/* ─── Thinking drawer: fluid width on small screens ─────────────────────── */
+.drawer {
+  width: min(440px, 100vw);
+}
+
+/* ─── Sidebar Doc Browser ────────────────────────────────────────────────── */
+.sidebar-section {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.sidebar-section-hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 4px 0;
+  cursor: pointer;
+  font-family: var(--font);
+}
+
+.sidebar-section-hdr:hover {
+  color: var(--text);
+}
+
+.sidebar-section-arrow {
+  font-size: 12px;
+  transition: transform .2s;
+}
+
+.sidebar-section-hdr[aria-expanded="true"] .sidebar-section-arrow {
+  transform: rotate(180deg);
+}
+
+.sidebar-docs-list {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-docs-empty {
+  font-size: 11px;
+  color: var(--text-sub);
+  padding: 4px 0;
+}
+
+.sidebar-docs-group {
+  margin-bottom: 8px;
+}
+
+.sidebar-docs-group-name {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  padding: 3px 0 3px 6px;
+  border-left: 2px solid var(--accent);
+  margin-bottom: 4px;
+}
+
+.sidebar-docs-file {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text-sub);
+  font-size: 11px;
+  font-family: var(--font);
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background .2s, color .2s;
+}
+
+.sidebar-docs-file:hover {
+  background: #21262d;
+  color: var(--text);
+}
+
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
+/* Collapse sidebar at tablet/small-desktop width */
+@media (max-width: 1024px) {
   #sidebar {
     position: fixed;
     inset: 0 auto 0 0;
@@ -634,7 +750,8 @@ body {
     transform: translateX(0);
   }
 
-  #btn-menu {
+  #btn-menu,
+  #btn-menu-create {
     display: block;
   }
 
@@ -642,6 +759,31 @@ body {
     width: 100%;
     border-radius: 12px 12px 0 0;
     border-left: none;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    font-size: 13px;
+  }
+
+  #topbar h1,
+  #topbar-create h1 {
+    font-size: 13px;
+  }
+
+  #input-area {
+    padding: 10px 12px;
+  }
+
+  .example-chips {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+  }
+
+  .chip {
+    flex-shrink: 0;
   }
 }
 
@@ -947,9 +1089,5 @@ body {
 
   #create-content {
     padding: 16px;
-  }
-
-  #btn-menu-create {
-    display: block;
   }
 }

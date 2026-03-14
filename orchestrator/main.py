@@ -312,6 +312,29 @@ def dashboard():
     }
 
 
+@server.get("/docs")
+def list_docs():
+    """List all uploaded project documents, grouped by project folder."""
+    result = []
+    if os.path.isdir(PROJECTS_DIR):
+        for project in sorted(os.listdir(PROJECTS_DIR)):
+            proj_path = os.path.join(PROJECTS_DIR, project)
+            if os.path.isdir(proj_path):
+                files = []
+                for fname in sorted(os.listdir(proj_path)):
+                    fpath = os.path.join(proj_path, fname)
+                    if os.path.isfile(fpath):
+                        ext = os.path.splitext(fname)[1].lower()
+                        files.append({
+                            "name": fname,
+                            "ext": ext,
+                            "size_kb": round(os.path.getsize(fpath) / 1024, 1),
+                        })
+                if files:
+                    result.append({"project": project, "files": files})
+    return {"projects": result}
+
+
 @server.get("/raid/alerts")
 def get_raid_alerts():
     """

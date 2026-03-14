@@ -185,6 +185,16 @@
       border: 1px solid rgba(248,113,113,0.3); border-left: 4px solid #b91c1c;
       border-radius: 8px; padding: 14px 18px; font-size: 13px;
     }
+    @media (max-width: 900px) {
+      .db-kpi-row    { grid-template-columns: repeat(2,1fr); }
+      .db-charts-row { grid-template-columns: 1fr; }
+      #db-app { padding: 16px; }
+    }
+    @media (max-width: 480px) {
+      .db-kpi-row { grid-template-columns: 1fr; }
+      .db-fins    { flex-direction: column; gap: 8px; align-items: flex-end; }
+      .db-proj-hdr { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
   </style>
 </head>
 
@@ -198,33 +208,21 @@
     </div>
 
     <nav class="agent-legend">
-      <p class="legend-title">Agent Mesh</p>
+      <p class="legend-title">Agents</p>
+      <div class="agent-chip" data-agent="sql_agent">
+        <span class="dot teal"></span> SQL Agent
+      </div>
       <div class="agent-chip" data-agent="plan-forecast_agent">
-        <span class="dot teal"></span> Plan-Forecast Agent
+        <span class="dot violet"></span> Plan-Forecast
       </div>
       <div class="agent-chip" data-agent="contract_agent">
-        <span class="dot violet"></span> Contract Agent
-      </div>
-      <div class="agent-chip" data-agent="general_agent">
-        <span class="dot slate"></span> General Agent
-      </div>
-      <div class="agent-chip" data-agent="both">
-        <span class="dot orange"></span> Synthesizer (Both)
-      </div>
-      <div class="agent-chip" data-agent="project_creation">
-        <span class="dot green"></span> Project Creation
-      </div>
-      <div class="agent-chip" data-agent="delete_agent">
-        <span class="dot red"></span> Delete Project Agent
-      </div>
-      <div class="agent-chip" data-agent="pricing_agent">
-        <span class="dot yellow"></span> Pricing Agent
+        <span class="dot slate"></span> Contract
       </div>
       <div class="agent-chip" data-agent="risk_agent">
-        <span class="dot" style="background-color: #ffaa00;"></span> Risk Agent
+        <span class="dot orange"></span> Risk / RAID
       </div>
-      <div class="agent-chip" data-agent="raid_update_agent">
-        <span class="dot" style="background-color: #00eeff;"></span> RAID Update
+      <div class="agent-chip" data-agent="mbr_agent">
+        <span class="dot" style="background-color: #00eeff;"></span> MBR / Portfolio
       </div>
     </nav>
 
@@ -240,6 +238,15 @@
       <button id="nav-chat" class="btn-secondary nav-active">💬 Chat</button>
       <button id="nav-create" class="btn-secondary">📁 Create Project</button>
       <button id="nav-dashboard" class="btn-secondary" style="margin-top:4px;">📊 Dashboard</button>
+    </div>
+
+    <!-- ─── Project Files Browser ─────────────────────────────────── -->
+    <div class="sidebar-section" id="sidebar-docs">
+      <button class="sidebar-section-hdr" id="btn-docs-toggle" aria-expanded="false">
+        <span>📄 Project Files</span>
+        <span class="sidebar-section-arrow">▾</span>
+      </button>
+      <div id="sidebar-docs-list" class="sidebar-docs-list" hidden></div>
     </div>
 
     <div class="stack-info">

@@ -89,6 +89,66 @@ async function fetchRaidAlerts() {
 fetchRaidAlerts();
 setInterval(fetchRaidAlerts, 30_000);
 
+// ─── Doc Browser ───────────────────────────────────────────────────────────
+const docsBtnToggle = document.getElementById("btn-docs-toggle");
+const docsListEl    = document.getElementById("sidebar-docs-list");
+let _docsLoaded = false;
+
+docsBtnToggle?.addEventListener("click", () => {
+    const open = docsBtnToggle.getAttribute("aria-expanded") === "true";
+    docsBtnToggle.setAttribute("aria-expanded", String(!open));
+    docsListEl.hidden = open;
+    if (!open && !_docsLoaded) loadDocBrowser();
+});
+
+async function loadDocBrowser() {
+    _docsLoaded = true;
+    docsListEl.textContent = "Loading…";
+    try {
+        const r    = await fetch(`${GATEWAY}/docs`);
+        const data = await r.json();
+        renderDocBrowser(data.projects || []);
+    } catch {
+        docsListEl.textContent = "Could not load documents.";
+    }
+}
+
+function renderDocBrowser(projects) {
+    docsListEl.replaceChildren();
+    if (!projects.length) {
+        const msg = document.createElement("p");
+        msg.className = "sidebar-docs-empty";
+        msg.textContent = "No documents uploaded yet.";
+        docsListEl.appendChild(msg);
+        return;
+    }
+    const EXT_ICON = { ".pdf": "📄", ".docx": "📝", ".doc": "📝", ".xlsx": "📊", ".xls": "📊" };
+    for (const proj of projects) {
+        const grp = document.createElement("div");
+        grp.className = "sidebar-docs-group";
+
+        const hdr = document.createElement("div");
+        hdr.className = "sidebar-docs-group-name";
+        hdr.textContent = proj.project;
+        grp.appendChild(hdr);
+
+        for (const file of proj.files) {
+            const btn = document.createElement("button");
+            btn.className = "sidebar-docs-file";
+            btn.title = file.name + " (" + file.size_kb + " KB)";
+            const icon = EXT_ICON[file.ext] || "📎";
+            btn.textContent = icon + " " + file.name;
+            btn.addEventListener("click", () => {
+                switchTab("chat");
+                userInput.value = "Show me the " + file.name + " for " + proj.project;
+                sendMessage();
+            });
+            grp.appendChild(btn);
+        }
+        docsListEl.appendChild(grp);
+    }
+}
+
 // ─── Agent badge config ────────────────────────────────────────────────────
 const AGENT_META = {
     "plan-forecast_agent": { label: "📊 Plan-Forecast Agent", css: "badge-forecast" },
@@ -947,18 +1007,34 @@ function dbExportPDF(projects, reportText) {
                </div>`
             : "";
 
+        const stageLabel = (p.stage || "UNKNOWN").toUpperCase();
+        const startD = (p.start_date || "").substring(0, 10) || "N/A";
+        const endD   = (p.end_date   || "").substring(0, 10) || "N/A";
+        const raidSummary = `${p.raids.open} open (${p.raids.high} High / ${p.raids.medium} Med / ${p.raids.low} Low)`;
+
         return `<div style="margin-bottom:16px;border:1px solid #e5e7eb;border-left:5px solid ${leftCol};border-radius:8px;overflow:hidden;page-break-inside:avoid;">
-          <div style="padding:12px 16px;background:#f9fafb;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
-            <div>
-              <span style="${stageStyle(p.stage)}">${h(p.stage||"—")}</span>
-              <span style="font-size:14px;font-weight:700;color:#111827;margin-left:8px;">${h(p.customer)}</span>
-              <div style="font-size:11px;color:#6b7280;margin-top:4px;">#${h(p.project_number)} &middot; ${h(p.country||"—")} &middot; PM: ${h(p.pm||"—")} &middot; ${h(p.start_date||"?")} &rarr; ${h(p.end_date||"?")}</div>
-            </div>
-            <div style="display:flex;gap:18px;text-align:right;flex-shrink:0;">
-              <div><div style="font-size:9px;color:#9ca3af;text-transform:uppercase;">Baseline Rev</div><div style="font-size:13px;font-weight:700;">${h(fc(f.baseline_rev))}</div></div>
-              <div><div style="font-size:9px;color:#9ca3af;text-transform:uppercase;">Actual Cost</div><div style="font-size:13px;font-weight:700;">${h(fc(f.actual_cost))}</div></div>
-              <div><div style="font-size:9px;color:#9ca3af;text-transform:uppercase;">Variance</div><div style="font-size:13px;font-weight:700;color:${varCol};">${h(fc(f.rev_variance))}</div></div>
-              <div><div style="font-size:9px;color:#9ca3af;text-transform:uppercase;">Margin</div><div style="font-size:13px;font-weight:700;color:${marCol};">${h(f.margin_pct + "%")}</div></div>
+          <div style="padding:12px 16px;background:#f9fafb;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+              <div>
+                <span style="${stageStyle(stageLabel)}">${h(stageLabel)}</span>
+                <span style="font-size:14px;font-weight:700;color:#111827;margin-left:8px;">${h(p.customer)}</span>
+                <div style="font-size:11px;color:#6b7280;margin-top:4px;">
+                  Project #${h(p.project_number)}
+                  &nbsp;&middot;&nbsp; PM: ${h(p.pm || "—")}
+                  &nbsp;&middot;&nbsp; Country: ${h(p.country || "—")}
+                </div>
+                <div style="font-size:11px;color:#6b7280;margin-top:2px;">
+                  Period: ${h(startD)} &rarr; ${h(endD)}
+                  &nbsp;&middot;&nbsp; Currency: ${h(f.currency || "SGD")}
+                  &nbsp;&middot;&nbsp; RAID: ${h(raidSummary)}
+                </div>
+              </div>
+              <div style="display:flex;gap:16px;text-align:right;flex-shrink:0;">
+                <div><div style="font-size:9px;color:#9ca3af;text-transform:uppercase;">Baseline Rev</div><div style="font-size:13px;font-weight:700;">${h(fc(f.baseline_rev))}</div></div>
+                <div><div style="font-size:9px;color:#9ca3af;text-transform:uppercase;">Actual Cost</div><div style="font-size:13px;font-weight:700;">${h(fc(f.actual_cost))}</div></div>
+                <div><div style="font-size:9px;color:#9ca3af;text-transform:uppercase;">Variance</div><div style="font-size:13px;font-weight:700;color:${varCol};">${h(fc(f.rev_variance))}</div></div>
+                <div><div style="font-size:9px;color:#9ca3af;text-transform:uppercase;">Margin</div><div style="font-size:13px;font-weight:700;color:${marCol};">${h(f.margin_pct + "%")}</div></div>
+              </div>
             </div>
           </div>
           ${raidSection}

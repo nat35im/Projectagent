@@ -137,6 +137,17 @@ app.post("/project/confirm", async (req, res) => {
     }
 });
 
+// ── GET /docs  →  list uploaded project documents ────────────────────────────
+app.get("/docs", async (req, res) => {
+    try {
+        const upstream = await fetch(`${ORCHESTRATOR_URL}/docs`);
+        const data = await upstream.json();
+        return res.json(data);
+    } catch (err) {
+        return res.status(503).json({ projects: [] });
+    }
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 const server = createServer(app);
 server.listen(GATEWAY_PORT, () => {
