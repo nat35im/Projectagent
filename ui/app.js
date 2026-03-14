@@ -1177,8 +1177,18 @@ function dbRenderProjectCards(projects, report) {
     const sortKey = document.getElementById("db-sort-select")?.value || "status";
     const sorted  = dbSortProjects(projects, sortKey);
     const cards   = sorted.map((p, i) => dbProjectCard(p, i, report));
+
+    let allExpanded = false;
+    const expandBtn = dbEl("button", { className: "db-action-btn", id: "db-expand-all-btn" }, ["Expand All"]);
+    expandBtn.onclick = () => {
+        allExpanded = !allExpanded;
+        _dbProjectsContainer.querySelectorAll(".db-project-card").forEach(c => c.classList.toggle("open", allExpanded));
+        expandBtn.textContent = allExpanded ? "Collapse All" : "Expand All";
+    };
+
     const hdr = dbEl("div", { className: "db-section-hdr" }, [
         dbEl("div", { className: "db-section-title" }, ["Projects (" + projects.length + ")"]),
+        expandBtn,
     ]);
     _dbProjectsContainer.replaceChildren(hdr, ...cards);
 }
@@ -1239,17 +1249,10 @@ async function loadDashboard() {
         dbRenderCharts(_dbProjects);
 
         // Wire top-bar buttons (they live outside db-app, so wire after render)
-        const expandBtn  = document.getElementById("db-expand-all-btn");
         const csvBtn     = document.getElementById("db-csv-btn");
         const pdfBtn     = document.getElementById("db-pdf-btn");
         const sortSelect = document.getElementById("db-sort-select");
 
-        let allExpanded = false;
-        expandBtn.onclick = () => {
-            allExpanded = !allExpanded;
-            _dbProjectsContainer.querySelectorAll(".db-project-card").forEach(c => c.classList.toggle("open", allExpanded));
-            expandBtn.textContent = allExpanded ? "Collapse All" : "Expand All";
-        };
         sortSelect.onchange = () => dbRenderProjectCards(_dbProjects, report);
         csvBtn.onclick = () => dbExportCSV(_dbProjects);
         pdfBtn.onclick = () => dbExportPDF(_dbProjects, report);
