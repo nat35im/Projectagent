@@ -36,6 +36,7 @@ from agents.risk_agent import risk_agent_node as _risk_direct
 from agents.raid_update_agent import raid_update_agent_node as _raid_update_direct
 from agents.sql_agent import sql_agent_node as _sql_direct
 from agents.mbr_agent import mbr_agent_node as _mbr_direct
+from agents.document_viewer_agent import document_viewer_agent_node as _doc_viewer_direct
 
 _ACP_AVAILABLE: bool | None = None   # cached after first check
 
@@ -141,6 +142,11 @@ def mbr_agent_node(state: AgentState) -> dict:
     return _mbr_direct(state)
 
 
+def document_viewer_agent_node(state: AgentState) -> dict:
+    # Document Viewer always runs directly — no ACP wrapper needed (read-only, local files).
+    return _doc_viewer_direct(state)
+
+
 def sql_agent_node(state: AgentState) -> dict:
     # SQL Agent manages its own next_node decision and SQLite execution.
     # We call it directly to ensure the state machine routes correctly.
@@ -179,6 +185,8 @@ def _route_decision(state: AgentState):
         return ["raid_update_agent"]
     if decision == "mbr_agent":
         return ["mbr_agent"]
+    if decision == "document_viewer_agent":
+        return ["document_viewer_agent"]
     return ["general_agent"]
 
 
@@ -205,6 +213,7 @@ def build_graph():
     workflow.add_node("risk_agent", risk_agent_node)
     workflow.add_node("raid_update_agent", raid_update_agent_node)
     workflow.add_node("mbr_agent", mbr_agent_node)
+    workflow.add_node("document_viewer_agent", document_viewer_agent_node)
 
     # All queries hit the Text-to-SQL logic first
     workflow.set_entry_point("sql_agent")
@@ -232,6 +241,7 @@ def build_graph():
             "risk_agent": "risk_agent",
             "raid_update_agent": "raid_update_agent",
             "mbr_agent": "mbr_agent",
+            "document_viewer_agent": "document_viewer_agent",
         }
     )
 
@@ -244,6 +254,7 @@ def build_graph():
     workflow.add_edge("risk_agent", END)
     workflow.add_edge("raid_update_agent", END)
     workflow.add_edge("mbr_agent", END)
+    workflow.add_edge("document_viewer_agent", END)
 
     return workflow.compile()
 

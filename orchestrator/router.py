@@ -105,7 +105,10 @@ def _build_router_prompt() -> str:
         f"{next_i + 5}. 'mbr_agent': Use when the query asks for a portfolio overview, dashboard, MBR report, all-projects status, recovery plan, revenue/loss summary, or forecast across all projects."
     )
     buckets.append(
-        f"{next_i + 6}. 'general_agent': General conversation, off-topic, or greetings."
+        f"{next_i + 6}. 'document_viewer_agent': Use when the query asks to view, open, read, show, or display an uploaded document (contract, SOW, estimation, Excel file) for a specific project."
+    )
+    buckets.append(
+        f"{next_i + 7}. 'general_agent': General conversation, off-topic, or greetings."
     )
 
     return (
@@ -127,7 +130,7 @@ def router_node(state: AgentState) -> dict:
 
     valid_keys = (
         [COLLECTION_TO_AGENT.get(s, s + "_agent") for s in ROUTER_CONTEXT]
-        + ["both", "delete_agent", "pricing_agent", "risk_agent", "raid_update_agent", "mbr_agent", "general_agent"]
+        + ["both", "delete_agent", "pricing_agent", "risk_agent", "raid_update_agent", "mbr_agent", "document_viewer_agent", "general_agent"]
     )
 
     # 1. Prepare messages with history
@@ -162,6 +165,8 @@ def router_node(state: AgentState) -> dict:
             decision = "risk_agent"
         elif any(w in q for w in ["dashboard", "mbr", "portfolio", "status report", "recovery plan", "all projects", "all project"]):
             decision = "mbr_agent"
+        elif any(w in q for w in ["view document", "open document", "show document", "read document", "show file", "view file", "open file", "show contract file", "view contract file", "show excel", "view excel"]):
+            decision = "document_viewer_agent"
         elif "plan" in q or "forecast" in q or "hours" in q:
             decision = "plan-forecast_agent"
         elif "contract" in q or "sow" in q or "agreement" in q:

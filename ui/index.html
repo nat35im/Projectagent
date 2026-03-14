@@ -12,6 +12,180 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ── Dashboard panel ──────────────────────────────────── */
+    #dashboard-panel {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    }
+    #dashboard-panel .db-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 24px; background: var(--surface, #161b22);
+      border-bottom: 1px solid var(--border-color, #30363d);
+      flex-shrink: 0;
+    }
+    #dashboard-panel .db-topbar h1 {
+      font-size: 1rem; font-weight: 700; color: var(--text-primary, #e6edf3); margin: 0;
+    }
+    #dashboard-panel .db-topbar-right { display: flex; align-items: center; gap: 10px; }
+    #dashboard-panel #db-report-date { font-size: 11px; color: #8b949e; }
+    #dashboard-panel .db-refresh-btn {
+      background: rgba(255,255,255,0.08); color: #e6edf3;
+      border: 1px solid rgba(255,255,255,0.2); border-radius: 7px;
+      padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    #dashboard-panel .db-refresh-btn:hover { background: rgba(255,255,255,0.15); }
+    #dashboard-panel .db-refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #db-app { flex: 1; overflow-y: auto; padding: 24px 28px; }
+
+    /* KPI row */
+    .db-kpi-row    { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 22px; }
+    .db-charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 22px; }
+
+    .db-kpi-card {
+      background: #1c2128; border: 1px solid #30363d; border-radius: 10px;
+      padding: 18px 20px; display: flex; flex-direction: column; gap: 5px;
+      border-top: 4px solid #254e8a;
+    }
+    .db-kpi-card.accent-green  { border-top-color: #15803d; }
+    .db-kpi-card.accent-red    { border-top-color: #b91c1c; }
+    .db-kpi-card.accent-yellow { border-top-color: #b45309; }
+    .db-kpi-label { color: #8b949e; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; }
+    .db-kpi-value { font-size: 26px; font-weight: 800; line-height: 1; color: #e6edf3; }
+    .db-kpi-sub   { font-size: 12px; color: #8b949e; }
+    .db-kpi-pos   { color: #4ade80 !important; }
+    .db-kpi-neg   { color: #f87171 !important; }
+    .db-kpi-warn  { color: #fbbf24 !important; }
+
+    /* Chart cards */
+    .db-chart-card {
+      background: #1c2128; border: 1px solid #30363d; border-radius: 10px;
+      padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;
+    }
+    .db-chart-card h3 { font-size: 11px; font-weight: 800; color: #8b949e; text-transform: uppercase; letter-spacing: 0.6px; }
+    .db-chart-wrap    { position: relative; height: 210px; }
+
+    /* Section header */
+    .db-section-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .db-section-title {
+      font-size: 13px; font-weight: 800; color: #58a6ff;
+      padding-bottom: 8px; border-bottom: 2px solid #58a6ff; display: inline-block;
+    }
+    .db-hdr-actions { display: flex; gap: 8px; }
+    .db-action-btn {
+      background: #21262d; color: #e6edf3; border: 1px solid #30363d;
+      border-radius: 7px; padding: 5px 12px; font-size: 12px; font-weight: 600;
+      cursor: pointer;
+    }
+    .db-action-btn:hover { background: #30363d; }
+
+    /* Project cards */
+    .db-project-card {
+      background: #1c2128; border: 1px solid #30363d; border-radius: 10px;
+      margin-bottom: 12px; overflow: hidden; border-left: 5px solid #254e8a;
+    }
+    .db-project-card.s-at-risk  { border-left-color: #b91c1c; }
+    .db-project-card.s-delayed  { border-left-color: #c2410c; }
+    .db-project-card.s-on-track { border-left-color: #15803d; }
+
+    .db-proj-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; cursor: pointer; user-select: none; transition: background 0.15s;
+    }
+    .db-project-card.s-at-risk  .db-proj-hdr { background: rgba(185,28,28,0.07); }
+    .db-project-card.s-delayed  .db-proj-hdr { background: rgba(194,65,12,0.07); }
+    .db-project-card.s-on-track .db-proj-hdr { background: rgba(21,128,61,0.07); }
+    .db-proj-hdr:hover { filter: brightness(1.08); }
+
+    .db-proj-title-grp { display: flex; align-items: center; gap: 10px; }
+    .db-proj-name { font-size: 14px; font-weight: 700; color: #e6edf3; }
+    .db-proj-meta { font-size: 11px; color: #8b949e; margin-top: 1px; }
+
+    .db-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 5px; font-size: 11px; font-weight: 800;
+      background: transparent; border: 1.5px solid currentColor; white-space: nowrap;
+    }
+    .db-badge-at-risk  { color: #f87171; }
+    .db-badge-delayed  { color: #fb923c; }
+    .db-badge-on-track { color: #4ade80; }
+    .db-badge-default  { color: #8b949e; }
+
+    .db-fins { display: flex; align-items: center; gap: 20px; }
+    .db-fin-item { text-align: right; }
+    .db-fin-label { font-size: 10px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.4px; }
+    .db-fin-value { font-size: 13px; font-weight: 700; color: #e6edf3; }
+    .db-fin-pos { color: #4ade80 !important; }
+    .db-fin-neg { color: #f87171 !important; }
+    .db-fin-neg-pill {
+      background: rgba(185,28,28,0.18); color: #f87171; border: 1px solid rgba(248,113,113,0.3);
+      padding: 2px 8px; border-radius: 5px; font-size: 13px; font-weight: 700;
+    }
+
+    .db-toggle-icon { color: #8b949e; font-size: 14px; transition: transform 0.2s; margin-left: 8px; }
+    .db-project-card.open .db-toggle-icon { transform: rotate(180deg); }
+
+    .db-proj-detail { display: none; padding: 0 18px 18px; border-top: 1px solid #30363d; }
+    .db-project-card.open .db-proj-detail { display: block; }
+
+    .db-raid-title {
+      font-size: 10px; font-weight: 800; color: #8b949e;
+      text-transform: uppercase; letter-spacing: 0.6px; margin: 14px 0 8px;
+    }
+
+    .db-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .db-table th {
+      background: #161b22; color: #8b949e; font-weight: 700;
+      text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;
+      padding: 8px 10px; text-align: left; border-bottom: 1px solid #30363d;
+    }
+    .db-table td { padding: 8px 10px; border-bottom: 1px solid #21262d; vertical-align: top; color: #e6edf3; }
+    .db-table tr:hover td { background: rgba(88,166,255,0.05); }
+    .db-table tr:last-child td { border-bottom: none; }
+
+    .db-pill { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+    .db-pill-high   { background: #b91c1c; color: #fff; }
+    .db-pill-medium { background: #c2410c; color: #fff; }
+    .db-pill-low    { background: rgba(21,128,61,0.25); color: #4ade80; border: 1px solid rgba(74,222,128,0.3); }
+    .db-pill-count  { background: #21262d; color: #8b949e; border: 1px solid #30363d; }
+    .db-pill-open   { background: rgba(88,166,255,0.15); color: #58a6ff; border: 1px solid rgba(88,166,255,0.3); }
+    .db-pill-wip    { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+    .db-pill-closed { background: #21262d; color: #8b949e; }
+
+    .db-recovery-box {
+      background: rgba(185,28,28,0.1); border: 1px solid rgba(185,28,28,0.3);
+      border-left: 4px solid #b91c1c; border-radius: 8px; padding: 12px 16px; margin-top: 12px;
+    }
+    .db-recovery-title { font-size: 11px; font-weight: 800; color: #f87171;
+                         text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px; }
+    .db-recovery-text  { font-size: 12px; color: #e6edf3; line-height: 1.7; white-space: pre-wrap; }
+
+    .db-no-raids {
+      color: #4ade80; font-size: 12px; padding: 10px 14px;
+      background: rgba(21,128,61,0.1); border-radius: 6px;
+      border: 1px solid rgba(74,222,128,0.25); font-weight: 600; margin-top: 8px;
+    }
+
+    .db-spinner {
+      display: inline-block; width: 22px; height: 22px;
+      border: 3px solid #30363d; border-top-color: #58a6ff;
+      border-radius: 50%; animation: db-spin 0.7s linear infinite;
+    }
+    @keyframes db-spin { to { transform: rotate(360deg); } }
+    .db-loading {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; padding: 60px; color: #8b949e; font-size: 14px;
+    }
+    .db-error {
+      color: #f87171; background: rgba(185,28,28,0.1);
+      border: 1px solid rgba(248,113,113,0.3); border-left: 4px solid #b91c1c;
+      border-radius: 8px; padding: 14px 18px; font-size: 13px;
+    }
+  </style>
 </head>
 
 <body>
@@ -65,7 +239,7 @@
       <p class="legend-title">Navigation</p>
       <button id="nav-chat" class="btn-secondary nav-active">💬 Chat</button>
       <button id="nav-create" class="btn-secondary">📁 Create Project</button>
-      <a href="dashboard.html" target="_blank" class="btn-secondary" style="display:block;text-decoration:none;margin-top:4px;">📊 Dashboard</a>
+      <button id="nav-dashboard" class="btn-secondary" style="margin-top:4px;">📊 Dashboard</button>
     </div>
 
     <div class="stack-info">
@@ -208,6 +382,39 @@
           <button id="btn-cancel-create" class="btn-ghost">Cancel</button>
         </div>
         <div id="confirm-status" class="create-status"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Dashboard Panel ──────────────────────────────────────────────── -->
+  <section id="dashboard-panel" class="hidden-panel">
+    <div class="db-topbar">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button id="btn-menu-dashboard" aria-label="Toggle sidebar">☰</button>
+        <h1>📊 Portfolio Dashboard</h1>
+      </div>
+      <div class="db-topbar-right">
+        <span id="db-report-date"></span>
+        <button class="db-refresh-btn" id="db-refresh-btn">&#x21BB; Refresh</button>
+        <button class="db-action-btn" id="db-expand-all-btn">Expand All</button>
+        <button class="db-action-btn" id="db-csv-btn">⬇ CSV</button>
+        <button class="db-action-btn" id="db-pdf-btn">⬇ PDF</button>
+      </div>
+    </div>
+    <!-- RAID Alerts Banner (dashboard) -->
+    <div id="db-raid-alerts-container" style="display:none; background:rgba(185,28,28,0.12);
+      border-left:4px solid #ef4444; padding:12px 16px; margin:16px 20px 0; border-radius:6px;">
+      <h3 style="margin:0 0 8px 0; color:#f87171; font-size:0.85rem; display:flex; align-items:center; gap:8px;">
+        ⚠️ Overdue RAID Items
+      </h3>
+      <ul id="db-raid-alerts-list"
+        style="margin:0; padding-left:20px; color:#fca5a5; font-size:0.8rem; line-height:1.6;"></ul>
+    </div>
+
+    <div id="db-app">
+      <div class="db-loading">
+        <div class="db-spinner"></div>
+        <span>Loading portfolio data…</span>
       </div>
     </div>
   </section>
