@@ -10,14 +10,17 @@ app_port: 7860
 
 # Project Agent v1
 
-A production-ready, locally-runnable multi-agent AI system for project portfolio management. Combines LangGraph orchestration, Groq LLM, ChromaDB RAG, and a SQLite structured database to answer natural-language queries about projects, contracts, risks, and financials.
+A production-ready, locally-runnable multi-agent AI system for project portfolio management. Combines LangGraph orchestration, Groq LLM, ChromaDB RAG, and a SQLite structured database to answer natural-language queries about projects, contracts, risks, and financials — all from a single-page UI.
 
 ## Architecture
 
 ```
 User
  ↓
-Chat UI  (ui/index.html)         Portfolio Dashboard  (ui/dashboard.html)
+Chat UI  (ui/index.html)
+ ├── 💬 Chat tab
+ ├── 📁 Create Project tab
+ └── 📊 Dashboard tab  (integrated, no separate page)
  ↓ HTTP / REST
 Node.js Gateway  (runtime/gateway/server.js)
  ↓
@@ -32,7 +35,8 @@ Router Node  ──── classifies query → specialist agent
  ├── RAID Update Agent        (write RAID items to DB)
  ├── Pricing Agent            (contract pricing + RAG)
  ├── Delete Project Agent     (remove project from DB)
- ├── MBR Agent                (portfolio dashboard + recovery plans)
+ ├── MBR Agent                (portfolio overview + recovery plans)
+ ├── Document Viewer Agent    (sandboxed read-only file viewer)
  ├── Both → Synthesizer       (multi-agent merge)
  └── General Agent            (free-form conversation)
  ↓
@@ -60,13 +64,12 @@ cd /path/to/Projectagent
 ./start.sh
 ```
 
-This starts all 3 services and prints the URLs:
+This starts all 3 services:
 
 | Service | URL |
 |---|---|
-| Chat UI | http://localhost:3000 |
-| Portfolio Dashboard | http://localhost:3000/dashboard.html |
-| API docs | http://localhost:8000/docs |
+| Chat UI + Dashboard | http://localhost:3000 |
+| Orchestrator API docs | http://localhost:8000/docs |
 | ACP agents | http://localhost:8100/agents |
 
 Press `Ctrl+C` to stop all services.
@@ -113,9 +116,10 @@ Every query hits the **SQL Agent** first. If the structured database can answer 
 | Planning, hours, forecast | **Plan-Forecast Agent** |
 | Contracts, SOW, payment schedules | **Contract Agent** |
 | Risk analysis, RAID log summary | **Risk Agent** |
-| Add/update/resolve a RAID item | **RAID Update Agent** |
+| Add / update / resolve a RAID item | **RAID Update Agent** |
 | Pricing, cost breakdown | **Pricing Agent** |
 | Portfolio overview, MBR report | **MBR Agent** |
+| View / read an uploaded document | **Document Viewer Agent** |
 | Delete a project | **Delete Project Agent** |
 | Both plan + contract (compare/synthesise) | **Both → Synthesizer** |
 | General / off-topic | **General Agent** |
@@ -140,6 +144,10 @@ Every query hits the **SQL Agent** first. If the structured database can answer 
 "Add a new high risk for project 202024: key developer resigned. Owner: Kevin Lim."
 "Resolve RAID-SCB-0001 — issue has been closed"
 
+# Documents
+"Show me the contract file for Boston Property"
+"View the estimation Excel for DBS Bank"
+
 # Portfolio
 "Show me the portfolio dashboard"
 "Which projects are over budget?"
@@ -150,16 +158,45 @@ Every query hits the **SQL Agent** first. If the structured database can answer 
 
 ## Portfolio Dashboard
 
-The dashboard (`ui/dashboard.html`) provides:
-- **KPI cards** — total projects, portfolio revenue, variance, high RAID count
+The dashboard is built into the main UI (`ui/index.html`) as a tab — no separate page needed.
+
+**Features:**
+- **KPI cards** — total projects, portfolio revenue, variance, open RAID count
 - **Charts** — Revenue vs Cost and Margin % per project (Chart.js)
-- **Project cards** — colour-coded by status with expandable RAID table and recovery plan
+- **Project cards** — colour-coded by status, expandable RAID table and recovery plan
   - 🟢 ON TRACK — green left border
   - 🟠 DELAYED — orange left border
   - 🔴 AT RISK — red left border
-- Auto-expands at-risk and delayed projects on load
+- **Overdue RAID alert banner** — polls `/raid/alerts` every 30 seconds, shown on both Chat and Dashboard tabs
+- **CSV export** — three-section report: portfolio summary, project detail, open RAID items
+- **PDF export** — styled HTML report with KPIs, project cards, RAID tables, and recovery plans; opens in a new tab and triggers the browser print dialog
 
-Served at `http://localhost:3000/dashboard.html`. Fetches live data from `GET /dashboard` on the orchestrator.
+---
+
+## Document Viewer Agent
+
+The `document_viewer_agent` reads uploaded project documents (PDF, DOCX, XLSX) safely:
+
+- **Sandboxed** — only reads files inside `data/docs/projects/`. Path traversal is blocked.
+- **Read-only** — no writes, no modifications.
+- **LLM-assisted** — the agent summarises or answers specific questions about the document content.
+- Supports `.pdf` (via pdfplumber / pypdf), `.docx` / `.doc` (via python-docx), `.xlsx` / `.xls` (via openpyxl).
+
+Trigger via chat: *"Show me the contract for Boston Property"* or *"View the estimation file for DBS"*.
+
+---
+
+## Database Schema (SQLite)
+
+**`Project`** — core project metadata, financials, JSON blobs for SOW, resources, invoices, revenue, hours.
+
+**`ProjectWorkPackage`** — per-phase work breakdown with scope, deliverables, acceptance criteria, and a `quick_summary` field.
+
+**`RAIDitems`** — Risks, Actions, Issues, Decisions per project. Fields: `Type`, `Category` (High/Medium/Low), `owner`, `DueDate`, `ROAM`, `Status`, `Status_summary` (audit trail log).
+
+**`ProjectWeeklySummary`** — weekly status snapshots with RAG ratings across 9 dimensions (Delivery, Financial, Schedule, Resource, etc.) plus ITD/EAC financials and recovery plan narrative.
+
+**`MBRitems`** — MBR financial forecast entries (baseline, forecast amount, status).
 
 ---
 
@@ -168,40 +205,45 @@ Served at `http://localhost:3000/dashboard.html`. Fetches live data from `GET /d
 ```
 Projectagent/
 ├── ui/
-│   ├── index.html           # Chat UI
-│   ├── dashboard.html       # Portfolio dashboard
-│   ├── style.css            # Chat UI styles
-│   └── app.js               # Chat UI logic
+│   ├── index.html           # Single-page UI: Chat, Create Project, Dashboard tabs
+│   ├── style.css            # UI styles
+│   └── app.js               # UI logic (chat, project creation, dashboard, exports)
 ├── runtime/
 │   └── gateway/server.js    # Node.js HTTP gateway + static file server
 ├── orchestrator/
-│   ├── main.py              # FastAPI app + /chat, /ingest, /dashboard endpoints
+│   ├── main.py              # FastAPI app + /chat, /ingest, /dashboard, /raid/alerts
 │   ├── graph.py             # LangGraph StateGraph (agent wiring)
 │   ├── router.py            # Dynamic router node
+│   ├── project_graph.py     # Project creation sub-graph
 │   ├── acp_client.py        # ACP v1 client
 │   ├── state.py             # AgentState TypedDict
 │   └── llm_factory.py       # Groq LLM factory
 ├── agents/
-│   ├── acp_agent_server.py  # ACP server — all agents as HTTP endpoints (port 8100)
-│   ├── forecast_agent.py    # Plan-Forecast Agent
-│   ├── contract_agent.py    # Contract Agent
-│   ├── general_agent.py     # General Agent
-│   ├── synthesizer.py       # Synthesizer (multi-agent merge)
-│   ├── risk_agent.py        # Risk Agent
-│   ├── raid_update_agent.py # RAID Update Agent
-│   ├── pricing_agent.py     # Pricing Agent
-│   ├── delete_project_agent.py
-│   ├── mbr_agent.py         # MBR / Portfolio Agent
-│   └── sql_agent.py         # Text-to-SQL Agent
+│   ├── acp_agent_server.py      # ACP server — all agents as HTTP endpoints (port 8100)
+│   ├── sql_agent.py             # Text-to-SQL Agent (first responder)
+│   ├── forecast_agent.py        # Plan-Forecast Agent
+│   ├── contract_agent.py        # Contract Agent
+│   ├── risk_agent.py            # Risk Agent
+│   ├── raid_update_agent.py     # RAID Update Agent
+│   ├── pricing_agent.py         # Pricing Agent
+│   ├── mbr_agent.py             # MBR / Portfolio Agent
+│   ├── document_viewer_agent.py # Document Viewer Agent (sandboxed, read-only)
+│   ├── delete_project_agent.py  # Delete Project Agent
+│   ├── general_agent.py         # General Agent
+│   ├── synthesizer.py           # Synthesizer (multi-agent merge)
+│   ├── ingestion_agent.py       # Document ingestion into ChromaDB
+│   └── data_extraction_agent.py # Structured data extraction for project creation
 ├── tools/
 │   ├── ingestion.py         # Document ingestion → ChromaDB
 │   ├── retrieval.py         # ChromaDB similarity search
+│   ├── excel_parser.py      # Estimation/milestone Excel parser
 │   └── daily_report.py      # CLI script for scheduled MBR reports
 ├── data/
-│   ├── openclaw.db          # SQLite — Projects, RAIDitems, WorkPackages
+│   ├── openclaw.db          # SQLite — Projects, RAIDitems, WorkPackages, WeeklySummary
 │   ├── chroma_db/           # Auto-created vector store
-│   └── *.docx / *.xlsx      # Source documents for ingestion
+│   └── docs/projects/       # Uploaded project documents (per project subfolder)
 ├── start.sh                 # One-command launcher
+├── Dockerfile               # Docker image for HuggingFace Spaces deployment
 ├── .env                     # Local config (not committed)
 ├── .env.example             # Config template
 └── requirements.txt
@@ -222,3 +264,4 @@ Projectagent/
 | API | FastAPI (Python) |
 | Gateway | Node.js / Express |
 | UI | Vanilla HTML/CSS/JS + Chart.js |
+| PDF export | Browser print via Blob URL |
